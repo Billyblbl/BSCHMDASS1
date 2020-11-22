@@ -9,15 +9,16 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/app_name" />
+        android:text="@string/library_books"
+        />
 
     <ListView
-        android:id="@+id/bookList"
+        android:id="@+id/book_list"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="5dp"
         android:layout_marginTop="5dp"
-        android:background="@android:color/tertiary_text_light"
+        android:background="@color/list_items_background"
         android:divider="@color/colorPrimaryDark"
         android:dividerHeight="3dp"
         android:visibility="visible" />

@@ -8,4 +8,13 @@
     <string name="copies">Copies:</string>
     <string name="loaned">Loaned:</string>
     <string name="availables">Availables:</string>
+    <string name="loan">Loan</string>
+    <string name="loan_loaner_name_label">Name:</string>
+    <string name="loanBookLabel">Book:</string>
+    <string name="loan_current_loaner_label">Current loaner:</string>
+    <string name="loan_loaner_id_label">ID:</string>
+    <string name="library_books">Library Books:</string>
+    <string name="loan_copies_for_label">Copies for:</string>
+    <string name="loan_return_button_label">Return</string>
+    <string name="loan_button_label">Loan</string>
 </resources>

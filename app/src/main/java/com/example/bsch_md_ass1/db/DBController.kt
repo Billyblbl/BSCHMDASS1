@@ -24,18 +24,16 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
         onCreate(db)
     }
 
+    //region SQLite extension
+
     fun SQLiteDatabase.dropAll() {
         dropTable(BooksTable)
         dropTable(CopiesTable)
         dropTable(LoanersTable)
     }
 
-    fun dropAll() {
-        writableDatabase.dropAll()
-    }
-
     fun SQLiteDatabase.createTable(table : DBTable) {
-        var str = "create table ${table.name}("
+        var str = "create table if not exists ${table.name}("
         for (column in table.columnFormat) {
             str += column.first + " " + column.second
             if (column != table.columnFormat.last())
@@ -46,7 +44,7 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
     }
 
     fun SQLiteDatabase.dropTable(table : DBTable) {
-        execSQL("drop table ${table.name}")
+        execSQL("drop table if exists ${table.name}")
     }
 
     fun Cursor.toBook() : Book {
@@ -60,12 +58,12 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
         )
     }
 
-    fun Cursor.toLoaner(): Loaner {
-        return Loaner(
+    fun Cursor.toLoaner(): Loaner? {
+        return if (count > 0) Loaner(
                 ID = getInt(LoanersTable.ID),
                 fullname = getString(LoanersTable.FullName),
                 loanedBooks = getInt(LoanersTable.LoanedBooks)
-        )
+        ) else null
     }
 
     fun Cursor.toBookCopy(): BookCopy {
@@ -74,6 +72,12 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
                 book = Book(id = getInt(CopiesTable.BookID)),
                 loaner = Loaner(ID = getInt(CopiesTable.Loaner))
         )
+    }
+
+    //endregion SQLite extension
+
+    fun dropAll() {
+        writableDatabase.dropAll()
     }
 
     fun addBook(book : Book) {
@@ -122,7 +126,7 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
         }
     }
 
-    fun getLoaner(ID : Int) : Loaner {
+    fun getLoaner(ID : Int) : Loaner? {
         val db = writableDatabase
         val cursor = db.query(
                 LoanersTable.name,
@@ -135,9 +139,9 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
                 null
         )
         cursor.moveToFirst()
-        val book = cursor.toLoaner()
+        val loaner = cursor.toLoaner()
         cursor.close()
-        return book
+        return loaner
     }
 
     fun addCopy(copy : BookCopy) {
@@ -198,11 +202,14 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
         val list = ArrayList<BookCopy>()
         for (i in 0 until cursor.count) {
             val copy = cursor.toBookCopy()
-            copy.book = getBook(copy.book.id!!)
-            copy.loaner = getLoaner(copy.loaner!!.ID!!)
             list.add(copy)
+            cursor.moveToNext()
         }
         cursor.close()
+        for (copy in list) {
+            copy.book = getBook(copy.book.id!!)
+            copy.loaner = getLoaner(copy.loaner!!.ID!!)
+        }
         return list
     }
 
@@ -295,6 +302,7 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
             copy.book = getBook(copy.book.id!!)
             copy.loaner = getLoaner(copy.loaner!!.ID!!)
             list.add(copy)
+            cursor.moveToNext()
         }
         cursor.close()
         return list
@@ -317,6 +325,65 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
             cursor.close()
             return list
         }
+
+    val allAvailableBooks : ArrayList<Book>
+        get() {
+            val list = ArrayList<Book>()
+
+            // basic query seemed to simply not work as understood, further readings of the
+            // documentations would be necessary to fully grasp at the problem, not enough
+            // so we're leaving that to a raw SQL query
+            /*
+            val cursor = writableDatabase.query(
+                    BooksTable.name,
+                    BooksTable.columnNames,
+//                arrayOf("*"),
+                    "? > ?",
+                    arrayOf(
+                            BooksTable.columnNames[BooksTable.CopiesAmount],
+                            BooksTable.columnNames[BooksTable.LoanedCopies]
+                    ),
+                    null,null,null
+            )
+            */
+            var cols = ""
+            for (col in BooksTable.columnFormat) {
+                cols += col.first
+                if (col != BooksTable.columnFormat.last()) cols += ','
+            }
+            val cursor = writableDatabase.rawQuery(
+                        "SELECT $cols " +
+                            "FROM ${BooksTable.name} " +
+                                "WHERE ${BooksTable.columnNames[BooksTable.CopiesAmount]} > ${BooksTable.columnNames[BooksTable.LoanedCopies]}",
+                    null
+            )
+            cursor.moveToFirst()
+            for (i in 0 until cursor.count) {
+                list.add(cursor.toBook())
+                cursor.moveToNext()
+            }
+            cursor.close()
+            return list
+        }
+
+    val allLoaners : ArrayList<Loaner>
+        get() {
+            val list = ArrayList<Loaner>()
+            val cursor = writableDatabase.query(
+                    LoanersTable.name,
+                    LoanersTable.columnNames,
+                    null, null, null, null, null, null
+            )
+            cursor.moveToFirst()
+            for (i in 0 until cursor.count) {
+                cursor.toLoaner()?.let { list.add(it) }
+                cursor.moveToNext()
+            }
+            cursor.close()
+            return list
+        }
+
+    //region table models
 
     object BooksTable : DBTable("books", arrayOf(
                 "ID" to "integer primary key autoincrement",
@@ -353,4 +420,6 @@ class DBController(context: Context?, name: String?, factory: CursorFactory?, ve
             const val FullName = 1
             const val LoanedBooks = 2
     }
+
+    //endregion table models
 }
